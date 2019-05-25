@@ -39,7 +39,7 @@ cd "$currentfolder"
 scriptpath=$scriptfolder/$daemonfilename
 
 daemonaction=
-if [ ""`echo "$1" | grep -E "^($deamonallactions|run|monitor)$"` != "" ] ; then
+if [ "`echo "$1" | grep -E "^($deamonallactions|run|monitor)$"`" != "" ] ; then
 	daemonaction=$1
 	shift
 fi
@@ -55,7 +55,7 @@ if [ "$1" = "--config" ] || [ "$1" = "-c" ] ; then
 	fi
 	rawconfigpath=$2
 	daemonname=$2
-	if [ ""`echo "$daemonname" | grep -E "^.+\..+$"` = "" ] && [ ""`echo "$daemonname" | grep -E "^.+/.+$"` = ""] ; then
+	if [ "`echo "$daemonname" | grep -E "^.+\..+$"`" = "" ] && [ "`echo "$daemonname" | grep -E "^.+/.+$"`" = ""] ; then
 		daemonname=${daemonname}.${configdefaultextension}
 	fi
 	shift
@@ -70,7 +70,7 @@ fi
 
 
 if [ "$daemonaction" = "" ] ; then
-	if [ ""`echo "$1" | grep -E "^($deamonallactions|run|monitor)$"` != "" ] ; then
+	if [ "`echo "$1" | grep -E "^($deamonallactions|run|monitor)$"`" != "" ] ; then
 		daemonaction=$1
 		shift
 	fi
@@ -78,9 +78,9 @@ fi
 
 
 # Construct absolute path of configuration file
-if [ ""`echo "$daemonname" | grep -E "^/.*$"` != "" ] ; then
+if [ "`echo "$daemonname" | grep -E "^/.*$"`" != "" ] ; then
 	daemonconfig=$daemonname
-elif [ ""`echo "$daemonname" | grep -E "^.+/.+$"` != "" ] ; then
+elif [ "`echo "$daemonname" | grep -E "^.+/.+$"`" != "" ] ; then
 	cd "`dirname $daemonname`"
 	daemonconfig=`pwd -P`/`basename "$daemonname"`
 elif [ "$subfolder" = "bin" ] ; then
@@ -107,7 +107,7 @@ else
 fi
 
 # Some shells may have different arguments for "ps"
-if [ ""`uname -a | grep -E "(WRT|LEDE)"` = "" ] ; then
+if [ "`uname -a | grep -E "(WRT|LEDE)"`" = "" ] ; then
 	psargs=ax
 else
 	psargs=-w
@@ -155,7 +155,7 @@ if [ "$daemonaction" = "run" ] ; then
 	if [ "" = "$socatpath" ] ; then
 		socatpath=`getconfigbykey daemon.socat.path`
 		if [ "" = "$socatpath" ] ; then
-			if [ ""`uname -a | grep -E "(WRT|LEDE)"` = "" ] ; then
+			if [ "`uname -a | grep -E "(WRT|LEDE)"`" = "" ] ; then
 				socatpath=/usr/bin/socat
 			else
 				socatpath=/opt/bin/socat
@@ -397,7 +397,7 @@ rotating() {
 if [ "$daemonaction" = "dailyclean" ] ; then
 	daysold=14
 	if [ "" != "$1" ] ; then
-		if [ ""`echo "$1" | grep -E "^[0-9]+$"` ~= ""] ; then
+		if [ "`echo "$1" | grep -E "^[0-9]+$"`" != ""] ; then
 			daysold=$1
 		else
 			printusage
@@ -407,7 +407,7 @@ if [ "$daemonaction" = "dailyclean" ] ; then
 	if [ -d "$logspath" ] ; then
 		now=`date "+%s"`
 		daysago=`expr $now - $daysold \* 86400`
-		if [ ""`echo "$OSTYPE" | grep -E "^darwin.*$"` != "" ]; then
+		if [ "`echo "$OSTYPE" | grep -E "^darwin.*$"`" != "" ]; then
 			oldlogpattern=`date -r $daysago "+%Y-%m-%d"`
 			nowlogpattern=`date -r $now "+%Y-%m-%d"`
 		else

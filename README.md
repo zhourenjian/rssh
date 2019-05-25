@@ -1,6 +1,26 @@
 # rssh
 A reverse SSH remote login daemon. This daemon script is based on socat network utilities. And it requires to be run on both client machine and server. 
 
+## Requirement
+There are always lots of cases that you want to SSH connect to your OpenWRT based router at home or connect to your Linux deskop remotely. 
+
+## Known Solution and Its Fault
+There are a lot of solutions for this requirement. Most of them are using tunnel feature of sshd daemon to fulfil the requirement. But this requires creating an user on server and there will be a security risk that leaking this user may harm the server, as unauthorized user may collect a lot information about server.
+
+## Socat Solutiton
+This daemon script is using socat http://www.dest-unreach.org/socat/ . 
+
+Public server create a socat tunneling which will listen on two ports, one port for target machine to connect using socat and the other port for user to connect using ssh. 
+```
+/usr/bin/socat -d -d TCP-LISTEN:2112,reuseaddr TCP-LISTEN:2002,reuseaddr
+```
+
+The target machine will connect to public server and forwards the traffic to target machine's local 22 port:
+```
+/usr/local/bin/socat -d -d TCP:###.###.###.###:2112 TCP:127.0.0.1:22
+```
+
+
 ## Install socat
 ### Linux
 ```
@@ -65,6 +85,12 @@ daemon.logs.path=/tmp/rssh
 ```
 The daemon.port is the remote server port for target machine to connect. 
 
+If you are running on OpenWRT router, please remember to add following start-up script, like:
+```
+/jffs/rssh/daemon.sh /jffs/rssh/netgear.ini start
+```
+
+
 ## Access Target Machine
 
 ```
@@ -75,8 +101,9 @@ The port is the port configured daemon.ssh.listen item and the IP is the server 
 
 ## Features
 1. Both server and target machine can run multiple daemons
-2. The reverse SSH daemon is always be running and there is monitors keeping both sides working.
-3. No root privileges are required on servers, not harming servers
+2. The reverse SSH daemon is always be running and there is monitors keeping both sides working
+3. No root privileges and no new users are required on servers
+4. Support Linux latop, Mac and Linux-based routers 
 
 ## Known Faults
 1. Only one SSH login sessions is supported for a time.
