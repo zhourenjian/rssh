@@ -1,13 +1,20 @@
 #!/bin/sh
 # 
-# This script will provide a way to bring SSH remote login to intranet machine to public internet, using socat.
+# This script is a daemon template.
 #
 # Author: zhourenjian@gmail.com
 # https://github.com/zhourenjian/rssh
 # Date: May, 2019
 # License: MIT
 #
-daemonfilename=`basename "$0"`
+
+# Copy and uncomment the following line to daemon app script.
+# daemonfilename=`basename "$0"`
+if [ "" = "$daemonfilename" ] ; then
+	echo "Variable "daemonfilename" needs to be set correctly before calling this daemon script."
+	exit 0
+fi
+
 configdefaultextension=ini
 daemonname=${daemonfilename%.*}.${configdefaultextension}
 deamonallactions="start|stop|reload|restart|status|dailyclean"
@@ -129,19 +136,6 @@ logging () {
 	if [ "" != "$verbose" ] ; then echo "[`date`] [$1] $2"; fi
 }
 
-# Load port, mode, host and get daemon PID
-loadportdaemonpid () {
-	port=`getconfigbykey daemon.port`
-	if [ "" = "$port" ] ; then port=443 ; fi
-	mode=`getconfigbykey daemon.mode`
-	if [ "$mode" = "server" ] ; then
-		daemonpid=`getpidbyargs socat ":${port}"`
-	else
-		host=`getconfigbykey daemon.host`
-		daemonpid=`getpidbyargs socat "${host}:${port}"`
-	fi
-}
-
 # Run daemon in while loop to keep restarting daemon on crashes
 if [ "$daemonaction" = "run" ] ; then
 	# An extra argument to avoid calling $0 run directly from command line
@@ -150,70 +144,19 @@ if [ "$daemonaction" = "run" ] ; then
 		exit 0
 	fi
 
-	# determine socat location
-	socatpath=`which socat`
-	if [ "" = "$socatpath" ] ; then
-		socatpath=`getconfigbykey daemon.socat.path`
-		if [ "" = "$socatpath" ] ; then
-			if [ "`uname -a | grep -E "(WRT|LEDE)"`" = "" ] ; then
-				socatpath=/usr/bin/socat
-			else
-				socatpath=/opt/bin/socat
-			fi
-		fi
-	fi
+	preparerun
 
 	while [ 1 ] ; do
 		daemoncfgcontent=
 		verbose=`getconfigbykey daemon.verbose.flag`
-		loadportdaemonpid
+		loaddaemonpid
 		if [ "" != "$daemonpid" ] ; then
 			echo "$daemonpid" | xargs kill -9
 			logging WARN "Kill existed daemon process $daemonpid."
 		fi
 
-		##### Start of application-level #####
-		#mode=`getconfigbykey daemon.mode`
-		if [ "$mode" = "server" ] ; then
-			sshlisten=`getconfigbykey ssh.listen`
-			$socatpath ${verbose} TCP-LISTEN:${port},reuseaddr TCP-LISTEN:${sshlisten},reuseaddr
-			logging INFO "Daemon process exits. New deamon process will start."
-			sleep 1
-		else
-			#host=`getconfigbykey daemon.host`
-			startedts=`date "+%s"`
-			sshhost=`getconfigbykey ssh.host`
-			if [ "" = "$sshhost" ] ; then sshhost=127.0.0.1 ; fi
-			sshport=`getconfigbykey ssh.port`
-			if [ "" = "$sshport" ] ; then sshport=22 ; fi
-			$socatpath ${verbose} TCP:${host}:${port} TCP:${sshhost}:${sshport}
-			logging INFO "Daemon process exits. New deamon process will start."
-			# Sleep more seconds than server end. So its has time to be ready
-			sleep 3
-		fi
-		##### End of application-level #####
+		runapp
 	done
-	exit 0
-fi
-
-# Reload daemon
-if [ "$daemonaction" = "reload" ] ; then
-	loadportdaemonpid
-	if [ "" != "$daemonpid" ] ; then
-		echo "$daemonpid" | xargs kill -9
-		echo "Kill daemon(pid=$daemonpid), \"run\" process will restart daemon and reload updated configuration."
-		echo -n "Waiting 5 seconds to check running status."
-		for s in `seq 1 5` ; do sleep 1 ; echo -n "." ; done
-		echo "."
-		loadportdaemonpid
-		if [ "" = "$daemonpid" ] ; then
-			echo "Daemon is not running again!"
-		else
-			echo "Daemon is running again, pid=$daemonpid"
-		fi
-	else
-		echo "Daemon process doees not exist."
-	fi
 	exit 0
 fi
 
@@ -228,16 +171,17 @@ if [ "$daemonaction" = "monitor" ] ; then
 	checkinterval=7
 	maxerrors=3
 	noprocesscount=0
-	connoks=0
-	connerrors=0
+
+	preparemonitor
+
 	while [ 1 ] ; do
 		daemoncfgcontent=
 		verbose=`getconfigbykey daemon.verbose.flag`
 		# Check daemon process
-		loadportdaemonpid
+		loaddaemonpid
 		if [ "" = "$daemonpid" ] ; then
 			noprocesscount=`expr $noprocesscount + 1`
-			if [ $noprocesscount -gt 3 ] ; then
+			if test $noprocesscount -gt 3 ; then
 				runpid=`getpidbyargs " run $daemonhash" "$scriptpath"`
 				if [ "" = "$runpid" ] ; then
 					# Daemon run process does not exist, might be killed intentionally
@@ -257,28 +201,7 @@ if [ "$daemonaction" = "monitor" ] ; then
 
 		sleep $checkinterval
 
-		##### Start of application-level #####
-		# check ESTABLISHED connection status
-		checkconnection=`netstat -tan 2>/dev/null | grep "${port} " | grep EST`
-		if [ "" = "$checkconnection" ] ; then
-			logging ERROR "Daemon is not being connected."
-			connoks=0
-			connerrors=`expr $connerrors + 1`
-		else
-			if [ $connerrors -gt 0 ] ; then logging INFO "Daemon is being connected again." ; fi
-			connerrors=0
-			connoks=`expr $connoks + 1`
-		fi
-		if [ $connerrors -gt $maxerrors ] ; then
-			kill -9 $daemonpid
-			logging ERROR "Daemon is not being connected for $connerrors times. Daemon is killed by monitor."
-			connerrors=0
-			continue
-		elif [ $connerrors -gt 0 ] ; then
-			# Waiting for next check
-			continue
-		fi
-		##### End of application-level #####
+		monitorapp
 	done
 	exit 0
 fi
@@ -299,7 +222,7 @@ if [ "$daemonaction" = "stop" ] ; then
 	else
 		echo "Daemon monitor is not running. Do nothing."
 	fi
-	loadportdaemonpid
+	loaddaemonpid
 	if [ "" != "$daemonpid" ] ; then
 		echo "$daemonpid" | xargs kill -9
 		echo "Daemon has been stopped."
@@ -324,9 +247,30 @@ if [ "$daemonaction" = "restart" ] ; then
 	exit 0
 fi
 
+# Reload daemon
+if [ "$daemonaction" = "reload" ] ; then
+	loaddaemonpid
+	if [ "" != "$daemonpid" ] ; then
+		echo "$daemonpid" | xargs kill -9
+		echo "Kill daemon(pid=$daemonpid), \"run\" process will restart daemon and reload updated configuration."
+		echo -n "Waiting 5 seconds to check running status."
+		for s in `seq 1 5` ; do sleep 1 ; echo -n "." ; done
+		echo "."
+		loaddaemonpid
+		if [ "" = "$daemonpid" ] ; then
+			echo "Daemon is not running again!"
+		else
+			echo "Daemon is running again, pid=$daemonpid"
+		fi
+	else
+		echo "Daemon process doees not exist."
+	fi
+	exit 0
+fi
+
 # Check daemon status
 if [ "$daemonaction" = "status" ] ; then
-	loadportdaemonpid
+	loaddaemonpid
 	if [ "" = "$daemonpid" ] ; then
 		echo "Daemon is not running."
 	else

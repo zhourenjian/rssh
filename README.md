@@ -44,9 +44,10 @@ opkg install socat
 mkdir rssh
 cd rssh
 wget https://github.com/zhourenjian/rssh/blob/master/daemon.sh
+wget https://github.com/zhourenjian/rssh/blob/master/rssh.sh
 wget https://github.com/zhourenjian/rssh/blob/master/mbp.server.ini
-chmod +x daemon.sh
-./daemon.sh mbp.server.ini start
+chmod +x daemon.sh rssh.sh
+./rssh.sh mbp.server.ini start
 ```
 Please modify the listening port in the configuration file before running daemon.sh.
 Here is the example configuration:
@@ -66,10 +67,11 @@ The daemon.port is the port for remote target machine to connect. The daemon.ssh
 mkdir rssh
 cd rssh
 wget https://github.com/zhourenjian/rssh/blob/master/daemon.sh
+wget https://github.com/zhourenjian/rssh/blob/master/rssh.sh
 wget https://github.com/zhourenjian/rssh/blob/master/mbp.client.ini
-chmod +x daemon.sh
+chmod +x daemon.sh rssh.sh
 vim mbp.client.ini
-./daemon.sh mbp.server.ini start
+./rssh.sh mbp.server.ini start
 ```
 Please modify server IP or port in the configuration file before running daemon.sh.
 Here is the example configuration:
@@ -87,7 +89,7 @@ The daemon.port is the remote server port for target machine to connect.
 
 If you are running on OpenWRT router, please remember to add following start-up script, like:
 ```
-/jffs/rssh/daemon.sh /jffs/rssh/netgear.ini start
+/jffs/rssh/rssh.sh /jffs/rssh/netgear.ini start
 ```
 
 
@@ -105,10 +107,16 @@ The port is the port configured daemon.ssh.listen item and the IP is the server 
 3. No root privileges and no new users are required on servers
 4. Support Linux latop, Mac and Linux-based routers 
 
+
 ## Known Faults
 1. Only one SSH login sessions is supported for a time.
+
 Solution: Use SSH tunnel, if you need more sessions simulataneously.
 
-2. After SSH logout, there are about 10 seconds gap
+2. After SSH logout, there are about 10 seconds gap.
+
 Solution: Adjust the sleep time in the daemon script
 
+
+## License
+MIT
